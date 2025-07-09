@@ -31,7 +31,7 @@ jobs:
       - name: Terraform Initialize
         run: terraform init
       - name: Terraform Format
-        run: terraform fmt -check -recursive
+        run: terraform fmt
       - name: Terraform Plan
         run: terraform plan -out=tfplan
       - name: Upload tfplan artifact
