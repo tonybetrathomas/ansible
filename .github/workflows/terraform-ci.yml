@@ -10,6 +10,9 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     environment: dev
+    permissions:
+      id-token: write
+      contents: read
     env:
       TERRAFORM_VERSION: ${{ vars.TERRAFORM_VERSION }}
       ROLE_ARN: ${{ secrets.ROLE_ARN }}
