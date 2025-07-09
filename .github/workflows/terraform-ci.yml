@@ -1,8 +1,11 @@
 name: Terraform CI pipeline
+
 on:
-    workflow_dispatch:
-    push:
-        branches: [main]
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
 jobs:
   terraform:
     runs-on: ubuntu-latest
@@ -13,9 +16,17 @@ jobs:
     defaults:
       run:
         working-directory: terraform
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ROLE_ARN }}
+          aws-region: us-east-1
+          role-duration-seconds: 900
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -24,17 +35,22 @@ jobs:
 
       - name: Terraform Init
         run: |
-             terraform -v
-             terraform init
+          terraform -v
+          terraform init
 
       - name: Terraform Validate
         run: terraform validate
 
       - name: Terraform Format Check
-        run: terraform fmt
+        run: terraform fmt -check -recursive
 
       - name: Terraform Plan
-        run: terraform plan -var="role_arn=${{ secrets.ROLE_ARN }}"
+        run: terraform plan -var="role_arn=${{ secrets.ROLE_ARN }}" -out=tfplan
 
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: terraform/tfplan
       - name: Terraform Apply
-        run: terraform apply -var="role_arn=${{ secrets.ROLE_ARN }}" --auto-approve
+        run: terraform apply "tfplan"
