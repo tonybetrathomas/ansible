@@ -1,0 +1,29 @@
+name: Terraform CI pipeline
+on: workflow_dispatch
+jobs:
+    Initialize:
+        runs-on: ubunut-latest
+        environment: dev
+        steps:
+          - name: Setup-Terraform
+            uses: hashicorp/setup-terraform@v3
+            with:
+              terraform_version: ${{ vars.TERRAFORM_VERSION }} 
+          - name: Checkout Repository
+            uses: actions/checkout@v4
+          - name: Terraform Initialize
+            run: terraform init
+          - name: Terraform Validate
+            run: terraform validate
+          - name: Terraform Code FMT
+            run: terraform fmt --check --recursive
+          
+    Plan:
+        runs-on: ubuntu-latest
+        needs: Initialize
+        environment: dev
+        steps:
+          - name: Terraform plan
+            run: terraform plan
+          - name: Terraform Apply
+            run: terraform apply --auto-approve
