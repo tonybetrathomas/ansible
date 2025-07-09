@@ -12,7 +12,7 @@ permissions:
 env:
   AWS_OIDC_ROLE: ${{ secrets.AWS_OIDC_ROLE }}
   AWS_REGION: ${{ vars.AWS_REGION }}
-
+  TERRAFORM_ROLE_ARN: ${{ secrets.ROLE_ARN}}
 defaults:
   run:
     working-directory: terraform
@@ -33,9 +33,9 @@ jobs:
       - name: Terraform Format
         run: terraform fmt
       - name: Terraform Plan
-        run: terraform plan -out=tfplan
+        run: terraform plan -var="role_arn=${{ secrets.ROLE_ARN }}" -out=tfplan
       - name: Upload tfplan artifact
         uses: actions/upload-artifact@v4
         with:
           name: tfplan
-          path: ./infra/tfplan 
+          path: ./infra/tfplan
