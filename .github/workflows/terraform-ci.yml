@@ -1,63 +1,41 @@
-name: Terraform CI pipeline
-
+name: Terraform CI Pipeline
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
-#  push:
-#    branches:
-#     - main
+
 permissions:
   id-token: write
   contents: read
-  pull-requests: write
+
 env:
-      TERRAFORM_VERSION: ${{ vars.TERRAFORM_VERSION }}
-      ROLE_ARN: ${{ secrets.ROLE_ARN }}
-      AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_OIDC_ROLE: ${{ secrets.AWS_OIDC_ROLE }}
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+defaults:
+  run:
+    working-directory: terraform
+    shell: bash
 
 jobs:
-  terraform:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-        working-directory: terraform
-
+  Terraform-Setup:
+    runs-on: ubuntu-22.04
     steps:
-      - name: Checkout Repository
+      - name: Repository Checkout
         uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
-          role-session-name: GitHub-OIDC-Action
-          role-duration-seconds: 900
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: ${{ vars.TERRAFORM_VERSION }}
-
-      - name: Terraform Init
-        run: |
-          terraform -v
-          terraform init
-
-      - name: Terraform Validate
-        run: terraform validate
-
-      - name: Terraform Format Check
+          terraform_version: ${{ vars.TERRAFORM_VERSION}}
+      - name: Terraform Initialize
+        run: terraform init
+      - name: Terraform Format
         run: terraform fmt -check
-        continue-on-error: true
-
       - name: Terraform Plan
-        run: terraform plan -var="role_arn=${{ secrets.ROLE_ARN }}" -out=tfplan
-
-      - name: Upload Terraform Plan
+        run: terraform plan -out=tfplan
+      - name: Upload tfplan artifact
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-plan
-          path: terraform/tfplan
-      - name: Terraform Apply
-        run: terraform apply "tfplan"
+          name: tfplan
+          path: ./infra/tfplan 
