@@ -9,7 +9,7 @@ jobs:
     environment: dev
     defaults:
       run:
-        working-directory: ansible/terraform
+        working-directory: terraform
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
