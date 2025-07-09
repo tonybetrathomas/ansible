@@ -2,7 +2,7 @@ name: Terraform CI pipeline
 on: workflow_dispatch
 jobs:
     Initialize:
-        runs-on: ubunut-latest
+        runs-on: ubuntu-latest
         environment: dev
         steps:
           - name: Setup-Terraform
