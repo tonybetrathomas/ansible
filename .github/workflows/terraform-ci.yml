@@ -1,16 +1,15 @@
 name: Terraform CI pipeline
-
 on:
     workflow_dispatch:
     push:
         branches: [main]
-
 jobs:
   terraform:
     runs-on: ubuntu-latest
     environment: dev
     env:
-        role_arn: ${{ secrets.ROLE_ARN}}
+      TERRAFORM_VERSION: ${{ vars.TERRAFORM_VERSION }}
+      ROLE_ARN: ${{ secrets.ROLE_ARN }}
     defaults:
       run:
         working-directory: terraform
@@ -22,14 +21,11 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ vars.TERRAFORM_VERSION }}
-      - name: Configure AWS credentials from OIDC
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          role-to-assume: ${{ secrets.ROLE_ARN }}
-          aws-region: us-east-1
 
       - name: Terraform Init
-        run: terraform init
+        run: |
+             terraform -v
+             terraform init
 
       - name: Terraform Validate
         run: terraform validate
