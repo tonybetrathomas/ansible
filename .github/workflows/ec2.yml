@@ -1,22 +1,27 @@
-name: EC2 Describe OIDC Test
+name: List EC2 Instances
+
 on:
-    push:
-        branches:
-          - main
-    workflow_dispatch:
-permissions: 
-    id-token: write
-    contents: read
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
-    testing:
-        runs-on: ubuntu-latest
-        steps:
-          - name: chekout repo
-            uses: actions/checkout@v4
-          - name: aws configure
-            uses: aws-actions/configure-aws-credentials@v4
-            with:
-                role-to-assume: ${{ secrets.AWS_OIDC_ROLE }}
-                aws-region: ap-south-1
-          - name: List EC2
-            run: aws ec2 describe-instances
+  list-ec2:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Configure AWS credentials using OIDC
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_OIDC_ROLE }}
+        aws-region: us-west-2
+
+    - name: List EC2 Instances
+      run: aws ec2 describe-instances
