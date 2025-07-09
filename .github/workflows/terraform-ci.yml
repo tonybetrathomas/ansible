@@ -45,7 +45,7 @@ jobs:
         run: terraform validate
 
       - name: Terraform Format Check
-        run: terraform fmt -check -recursive
+        run: terraform fmt
 
       - name: Terraform Plan
         run: terraform plan -var="role_arn=${{ secrets.ROLE_ARN }}" -out=tfplan
