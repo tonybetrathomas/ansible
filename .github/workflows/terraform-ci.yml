@@ -9,6 +9,8 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     environment: dev
+    env:
+        role_arn: ${{ secrets.ROLE_ARN}}
     defaults:
       run:
         working-directory: terraform
@@ -31,7 +33,7 @@ jobs:
         run: terraform fmt
 
       - name: Terraform Plan
-        run: terraform plan
+        run: terraform plan -var="role_arn=${{ secrets.ROLE_ARN }}"
 
       - name: Terraform Apply
-        run: terraform apply --auto-approve
+        run: terraform apply -var="role_arn=${{ secrets.ROLE_ARN }}" --auto-approve
