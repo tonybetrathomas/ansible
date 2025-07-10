@@ -37,7 +37,7 @@ jobs:
       - name: Terraform Format
         run: terraform fmt
       - name: Terraform Plan
-        run: terraform plan -var="role_arn=${{ secrets.ROLE_ARN }}" -out=tfplan
+        run: terraform plan
       - name: Upload tfplan artifact
         uses: actions/upload-artifact@v4
         with:
