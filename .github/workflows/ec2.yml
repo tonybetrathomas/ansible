@@ -18,7 +18,7 @@ jobs:
     - name: Configure AWS credentials using OIDC
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: ${{ secrets.AWS_OIDC_ROLE }}
+        role-to-assume: ${{ secrets.ROLE_ARN }}
         aws-region: us-west-2
 
     - name: List EC2 Instances
