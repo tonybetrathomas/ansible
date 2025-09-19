@@ -1,0 +1,30 @@
+{
+  "name": "codebuild-ecs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/ecs-deployer.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-cloudformation": "^3.679.0",
+    "@aws-sdk/client-cloudwatch-logs": "^3.840.0",
+    "@aws-sdk/client-ec2": "^3.678.0",
+    "@aws-sdk/client-ecs": "^3.675.0",
+    "@aws-sdk/client-elastic-load-balancing-v2": "^3.677.0",
+    "@aws-sdk/client-s3": "^3.758.0",
+    "@aws-sdk/client-secrets-manager": "^3.758.0",
+    "@aws-sdk/client-ses": "^3.787.0",
+    "@aws-sdk/client-ssm": "^3.759.0",
+    "@aws-sdk/client-sts": "^3.682.0",
+    "@aws-sdk/lib-storage": "^3.758.0",
+    "axios": "^1.8.4",
+    "deep-diff": "^1.0.2",
+    "js-yaml": "^4.1.0",
+    "url": "^0.11.4",
+    "winston": "^3.8.2"
+  }
+}
