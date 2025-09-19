@@ -1,0 +1,139 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "The template used to create an ECS Service from the Cloud Formation with USTHP suite.",
+    "Resources": {
+      
+        "TaskDefinition": {
+            "Type": "AWS::ECS::TaskDefinition",
+           
+            "Properties": {
+                "ContainerDefinitions": [
+                    {
+                        "Name": "",
+                        "Image": "",
+                        "Memory": "",
+                        "MemoryReservation": "",
+                        "PortMappings": [
+                            {
+                                "Name":"",
+                                "ContainerPort": "",
+                                "HostPort": 0
+                            }
+                        ],
+                        "HealthCheck": {
+                            "Command": [
+                                "CMD-SHELL"
+                            ],
+                            "Retries": 3,
+                            "Timeout": 5,
+                            "Interval": 30
+                        },
+                        "LogConfiguration": {
+                            "LogDriver": "awslogs",
+                            "Options": {
+                                "awslogs-region": "",
+                                "awslogs-stream-prefix": "ecs"
+                            }
+                        },
+                        "Cpu": 0,
+                        "MountPoints": [],
+                        "Secrets": []             
+                    }
+                ],
+                "Volumes": [],
+                "TaskRoleArn": "",
+                "RequiresCompatibilities": [
+                    "EC2"
+                ],
+                "Family": "",
+                "ExecutionRoleArn": ""
+            }
+        },
+        
+        "ALBTargetGroup": {
+            "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "Properties": {
+                "HealthCheckIntervalSeconds": 30,
+                "HealthCheckPath": "/actuator/health",
+                "Port": 80,
+                "Protocol": "HTTP",
+                "HealthCheckPort": "traffic-port",
+                "HealthCheckProtocol": "HTTP",
+                "HealthCheckTimeoutSeconds": 6,
+                "UnhealthyThresholdCount": 3,
+                "TargetType": "instance",
+                "Matcher": {
+                    "HttpCode": "200-399"
+                },
+                "HealthyThresholdCount": 3,
+                "VpcId": "",
+                "Name": "",
+                "HealthCheckEnabled": true
+            }
+        },
+        "ALBListener": {
+            "Type": "AWS::ElasticLoadBalancingV2::Listener",
+            "Properties": {
+                "LoadBalancerArn": "",
+                "Port": "",
+                "Protocol": "HTTP",
+                "DefaultActions": [
+                    {
+                        "TargetGroupArn": {
+                            "Ref": "ALBTargetGroup"
+                        },
+                        "Type": "forward"
+                    }
+                ]
+            }
+        },
+        "ECSService": {
+            "Type": "AWS::ECS::Service",
+            "DependsOn": ["ALBListener","ALBTargetGroup"],
+            "Properties": {
+                "ServiceName": "",
+                "Cluster": "",
+                "HealthCheckGracePeriodSeconds": 120,
+                "LoadBalancers": [
+                    {
+                        "TargetGroupArn": {
+                            "Ref": "ALBTargetGroup"
+                        },
+                        "ContainerName": "",
+                        "ContainerPort": ""
+                    }
+                ],
+                "DesiredCount": "1",
+                "LaunchType": "EC2",
+                "TaskDefinition": {
+                    "Ref": "TaskDefinition"
+                },
+                "DeploymentConfiguration": {
+                    "MaximumPercent": "200",
+                    "MinimumHealthyPercent": "100"
+                },
+                "SchedulingStrategy": "REPLICA",
+                "DeploymentController": {
+                    "Type": "ECS"
+                },
+                "ServiceConnectConfiguration": {
+                    "Enabled": true,
+                    "Namespace": "",
+                    "Services": [
+                        {
+                            "PortName": "",
+                            "DiscoveryName": "",
+                            "ClientAliases": [
+                                {
+                                    "Port": 80,
+                                    "DnsName": ""
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
+        
+    }
+}

@@ -1,0 +1,20 @@
+import { SSMClient } from "@aws-sdk/client-ssm";
+import { ElasticLoadBalancingV2Client } from "@aws-sdk/client-elastic-load-balancing-v2";
+import { EC2Client } from "@aws-sdk/client-ec2";
+import { ECSClient } from "@aws-sdk/client-ecs";
+import { CloudFormationClient } from "@aws-sdk/client-cloudformation";
+import { CloudWatchLogsClient } from "@aws-sdk/client-cloudwatch-logs";
+import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import { S3Client } from "@aws-sdk/client-s3";
+import { STSClient } from "@aws-sdk/client-sts";
+
+const region = process.env.AWS_REGION || "us-east-1";
+export const ssmClient = new SSMClient({ region });
+export const elbClient = new ElasticLoadBalancingV2Client({ region });
+export const ec2Client = new EC2Client({ region });
+export const ecsClient = new ECSClient({ region });
+export const cloudFormationClient = new CloudFormationClient({ region });
+export const cloudWatchLogsClient = new CloudWatchLogsClient({ region });
+export const secretsManagerClient = new SecretsManagerClient({ region });
+export const s3Client = new S3Client({ region });
+export const stsClient = new STSClient({ region });
