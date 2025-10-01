@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "process document"
+version = "0.1.0"
+description = "AWS Lambda Function for process document"
+authors = ["akhila"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+boto3 = "^1.34"
+pydantic = "^2.7"
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.2"
+moto = "^5.0"

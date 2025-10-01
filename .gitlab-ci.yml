@@ -1,0 +1,184 @@
+# Global Variables
+variables:
+  GIT_DEPTH: "0"  # Fetch all branches
+  PROJECT_KEY: "${CI_PROJECT_ROOT_NAMESPACE}_${CI_PROJECT_NAME}"
+  DOCKER_BUILD_NAME: "${ARTIFACTORY_PROJECT_KEY}_${PRODUCT_NAMESPACE}_docker_build"
+  XRAY_WATCH_NAME: "${ARTIFACTORY_PROJECT_KEY}_${PRODUCT_NAMESPACE}_watch"
+  PRODUCTION_BRANCH: "main"
+
+# Stages
+stages:
+  - preparation           # Versioning
+  - test                  # Sonar Quality Gates
+  - publish-docker        # Docker Build, Scan & Publish
+  - export                # Export to AWS
+
+# ---------------- Versioning ----------------
+versioning:
+  image: $DOCKER_REGISTRY/$DOCKER_BASE_REPO/$PYTHON_IMAGE_TAG
+  stage: preparation
+  variables:
+    VERSION: ""
+    RELEASE_IDENIFIER: "latest"
+  before_script:
+    - pip install --no-cache-dir toml
+    # Extract version from pyproject.toml
+    - VERSION=$(python3 -c "import toml; print(toml.load('pyproject.toml')['tool']['poetry']['version'])")
+    - echo "Current version:${VERSION}"
+  script:
+    - echo "Commit Branch:${CI_COMMIT_BRANCH}"
+
+    # Select Docker Repo based on branch
+    - >
+      if [ "${CI_COMMIT_BRANCH}" == "${PRODUCTION_BRANCH}" ]; then
+        DOCKER_REPO=$DOCKER_PROD_REPO
+      elif [[ "${CI_COMMIT_BRANCH}" =~ ^archive\/.*$ ]]; then
+        DOCKER_REPO=$DOCKER_PROD_REPO
+      else
+        DOCKER_REPO=$DOCKER_NONPROD_REPO
+      fi
+
+    # Determine Release Version & Identifier
+    - export RELEASE_VERSION=$VERSION
+    - >
+      if [ "${CI_COMMIT_BRANCH}" == "${PRODUCTION_BRANCH}" ]; then
+        export RELEASE_IDENIFIER='latest'
+        export RELEASE_VERSION=${VERSION}
+        echo "Product Release Version: ${RELEASE_VERSION}"
+      elif [[ "${CI_COMMIT_BRANCH}" =~ ^release\/.*$ ]]; then
+        export RELEASE_IDENIFIER='RELEASE'
+        export RELEASE_VERSION="${VERSION}-RELEASE"
+        echo "Release Version: ${RELEASE_VERSION}"
+      elif [ "${CI_COMMIT_BRANCH}" == "POC" ]; then
+        export RELEASE_IDENIFIER='ALPHA'
+        export RELEASE_VERSION="${VERSION}-ALPHA"
+      else
+        export RELEASE_IDENIFIER='SNAPSHOT'
+        export RELEASE_VERSION="${VERSION}-SNAPSHOT"
+        echo "Snapshot Version: ${RELEASE_VERSION}"
+      fi
+
+    # Target Environment
+    - >
+      if [ "${CI_COMMIT_BRANCH}" == "POC" ]; then
+        export TARGET_ENV='POC'
+      else
+        export TARGET_ENV='DEV'
+      fi
+
+    # Export variables to dotenv
+    - echo "DOCKER_REPO=${DOCKER_REPO}" >> build.env
+    - echo "RELEASE_VERSION=${RELEASE_VERSION}" >> build.env
+    - echo "RELEASE_IDENIFIER=${RELEASE_IDENIFIER}" >> build.env
+    - echo "TARGET_ENV=${TARGET_ENV}" >> build.env
+    - cat build.env
+
+  artifacts:
+    reports:
+      dotenv: build.env
+  only:
+    - merge_requests
+    - DEV
+    - main
+    - POC
+    - /^release\/.*$/
+    - /^archive\/.*$/
+
+# ---------------- Sonar Quality Gates ----------------
+sonar-quality-gates:
+  stage: test
+  image: $DOCKER_REGISTRY/$DOCKER_BASE_REPO/$SONAR_IMAGE_TAG
+  needs: [versioning]
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
+  dependencies:
+    - versioning
+  script:
+    - sonar-scanner -Dsonar.projectKey=$PROJECT_KEY -Dsonar.sources=src -Dsonar.organization=${CI_PROJECT_ROOT_NAMESPACE} -Dsonar.projectVersion=${RELEASE_VERSION} -Dsonar.qualitygate.wait=true
+  only:
+    - merge_requests
+    - main
+    - DEV
+    - POC
+    - /^release\/.*$/
+    - /^archive\/.*$/
+  allow_failure: false
+
+# ---------------- Docker Build, Scan & Publish ----------------
+docker-build-scan-publish:
+  stage: publish-docker
+  image: $DOCKER_REGISTRY/$DOCKER_BASE_REPO/$DOCKER_IMAGE_TAG
+  needs: [versioning, sonar-quality-gates]
+  dependencies:
+    - versioning
+  services:
+    - name: $DOCKER_REGISTRY/$DOCKER_BASE_REPO/$DOCKER_DIND_IMAGE_TAG
+      alias: docker
+  variables:
+    IMAGE_TAG: $CI_PROJECT_NAME:$RELEASE_VERSION
+  before_script:
+    - echo "Artifact Version:$RELEASE_VERSION"
+    - echo "Artifact Release Identifier:$RELEASE_IDENIFIER"
+    - apk add --update curl unzip libstdc++ && rm -rf /var/cache/apk/*
+    - curl -fL -u $ARTIFACTORY_USER:$ARTIFACTORY_PASS $ARTIFACTORY_CLI_URL | sh -s $ARTIFACTORY_CLI_VERSION
+    - ./jf config add $ARTIFACTORY_SERVER --url=$ARTIFACTORY_URL --user=$ARTIFACTORY_USER --access-token=$ARTIFACTORY_PASS --interactive=false
+    - ./jf --version
+  script:
+    - docker login -u $ARTIFACTORY_USER -p $ARTIFACTORY_PASS $ARTIFACTORY_URL
+    - mv -f $DOCKER_FILE Dockerfile
+    - docker build -t $IMAGE_TAG .
+    - docker images
+    - >
+      if [[ ! "${CI_COMMIT_BRANCH}" =~ ^feature\/.*$ ]]; then
+        ./jf docker tag $IMAGE_TAG $DOCKER_REGISTRY/$DOCKER_REPO/$PRODUCT_NAMESPACE/$IMAGE_TAG
+        ./jf docker push $DOCKER_REGISTRY/$DOCKER_REPO/$PRODUCT_NAMESPACE/$IMAGE_TAG --build-name=$DOCKER_BUILD_NAME --build-number=$CI_JOB_ID --project=$ARTIFACTORY_PROJECT_KEY --module=$CI_PROJECT_NAME
+        ./jf rt bce $DOCKER_BUILD_NAME $CI_JOB_ID --project=$ARTIFACTORY_PROJECT_KEY
+        ./jf rt bp $DOCKER_BUILD_NAME $CI_JOB_ID --project=$ARTIFACTORY_PROJECT_KEY
+      fi
+  only:
+    - DEV
+    - main
+    - POC
+    - /^release\/.*$/
+    - /^archive\/.*$/
+  allow_failure: false
+
+# ---------------- Export Images to AWS ----------------
+export-images:
+  stage: export
+  image: $DOCKER_REGISTRY/$DOCKER_BASE_REPO/$DOCKER_IMAGE_TAG
+  needs: [versioning, docker-build-scan-publish]
+  services:
+    - name: $DOCKER_REGISTRY/$DOCKER_BASE_REPO/$DOCKER_DIND_IMAGE_TAG
+      alias: docker
+  variables:
+     HPS_IMAGE_TAG: $CI_PROJECT_NAME:$RELEASE_VERSION
+     ECR_IMAGE_TAG: $CI_PROJECT_NAME:$RELEASE_IDENIFIER
+  dependencies:
+    - versioning
+  before_script:
+    - docker login -u $ARTIFACTORY_USER -p $ARTIFACTORY_PASS $ARTIFACTORY_URL
+    - docker pull $DOCKER_REGISTRY/$DOCKER_REPO/$PRODUCT_NAMESPACE/$HPS_IMAGE_TAG
+    - docker pull $DOCKER_REGISTRY/$DOCKER_BASE_REPO/$AWS_CLI_IMAGE_TAG
+    - alias aws='docker run --rm -v ~/.aws:/root/.aws -v $(pwd):/aws $DOCKER_REGISTRY/$DOCKER_BASE_REPO/$AWS_CLI_IMAGE_TAG'
+    - >
+      if [ "${TARGET_ENV}" == "POC" ]; then
+        export AWS_ACCOUNT=$AWS_ACCOUNT_POC
+        export AWS_REGION=$AWS_REGION_POC
+        export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID_POC
+        export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY_POC
+      fi
+    - AWS_ECR_REGISRTY=$AWS_ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com
+    - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+    - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+    - aws configure set region $AWS_REGION
+    - aws ecr get-login-password --region $AWS_REGION | docker login -u AWS --password-stdin $AWS_ECR_REGISRTY
+    - aws ecr describe-repositories --repository-names $PRODUCT_NAMESPACE/$CI_PROJECT_NAME || aws ecr create-repository --repository-name $PRODUCT_NAMESPACE/$CI_PROJECT_NAME
+  script:
+    - docker tag $DOCKER_REGISTRY/$DOCKER_REPO/$PRODUCT_NAMESPACE/$HPS_IMAGE_TAG $AWS_ECR_REGISRTY/$PRODUCT_NAMESPACE/$HPS_IMAGE_TAG
+    - docker push $AWS_ECR_REGISRTY/$PRODUCT_NAMESPACE/$HPS_IMAGE_TAG
+  only:
+    - DEV
+    - main
+    - POC
+    - /^release\/.*$/
